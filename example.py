@@ -1,32 +1,17 @@
-import boto3
-import codecs
-import os
+"""This module implements function s3_to_dynamodb"""
+from boto3_resource import get_boto3_resource
+from boto3_s3 import Boto3S3
 
-class Boto3Client:
-    def __init__(self, Service, Resource=False):
-        endpointurl = os.environ.get("{}_endpoint_url".format(Service))
-        if(not Resource):
-            if(endpointurl):    
-                self.client = boto3.client(Service, endpoint_url=endpointurl)
-            else:
-                self.client = boto3.client(Service)
-        else:
-            if(endpointurl):
-                self.client = boto3.resource(Service, endpoint_url=endpointurl)
-            else:
-                self.client = boto3.resource(Service)
-
-        
-
-def s3ToDynamodb():
-    print('Within s3ToDynamodb function')
-    s3 = Boto3Client('s3').client
-    dynamodb = Boto3Client('dynamodb', Resource=True).client
-    table = dynamodb.Table('gdata')
-    s3file = s3.get_object(Bucket='my-bucket', Key='gdata.csv')
-    with table.batch_writer() as gdatawriter:
-        with codecs.getreader('utf-8')(s3file['Body']) as filestream:
-            for line in filestream:
+def s3_to_dynamodb():
+    """
+    Function to read s3 file, convert it to an `item`, and load into dynamodb
+    """
+    s3obj = Boto3S3()
+    dynamotbl = get_boto3_resource('dynamodb').Table('gdata')
+    with dynamotbl.batch_writer() as gdatawriter:
+        with s3obj.stream('my-bucket', 'gdata.csv') as filestream:
+            for rline in filestream:
+                line = rline.strip()
                 cols = line.split(',')
                 gdatawriter.put_item({
                     'sales': cols[3],
